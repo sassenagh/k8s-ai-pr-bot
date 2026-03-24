@@ -18,7 +18,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Build Docker image
-        run: docker build -t ai-pr-bot .
+        run: docker build -t k8s-ai-pr-bot .
 
       - name: Get PR diff
         run: |
@@ -27,7 +27,7 @@ jobs:
 
       - name: Run bot with Redis
         run: |
-          docker network create mynet
+          docker network create mynet || true
 
           docker run -d --name redis --network mynet redis:7
 
@@ -36,9 +36,8 @@ jobs:
             -e OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }} \
             -e GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }} \
             -e GITHUB_REPOSITORY=${{ github.repository }} \
-            -e GITHUB_REF=${{ github.ref }} \
-            -e PR_NUMBER=${{ github.event.pull_request.number }}
+            -e PR_NUMBER=${{ github.event.pull_request.number }} \
             -e REDIS_HOST=redis \
             -e REDIS_PORT=6379 \
             -v ${{ github.workspace }}:/app \
-            ai-pr-bot
+            k8s-ai-pr-bot
