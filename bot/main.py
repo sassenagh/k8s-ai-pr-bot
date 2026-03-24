@@ -7,7 +7,7 @@ from openai import OpenAI
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 REPO = os.getenv("GITHUB_REPOSITORY")
-PR_NUMBER = os.getenv("GITHUB_REF").split("/")[-2]
+PR_NUMBER = os.getenv("PR_NUMBER")
 
 REDIS_HOST = os.getenv("REDIS_HOST", "redis")
 REDIS_PORT = int(os.getenv("REDIS_PORT", 6379))
@@ -33,7 +33,7 @@ def fallback_review(diff: str) -> str:
 
     if image_line and ":latest" in image_line:
         fixed_image = image_line.replace(":latest", ":<version>")
-        issues.append("""❌ Critical: Avoid using 'latest' tag
+        issues.append(f"""❌ Critical: Avoid using 'latest' tag
                        Fix: 
                       {fixed_image}
                       """)
@@ -158,7 +158,10 @@ try:
         "Accept": "application/vnd.github+json"
     }
 
-    requests.post(url, headers=headers, json={"body": comment})
+    response = requests.post(url, headers=headers, json={"body": comment})
+
+    print("POST Status:", response.status_code)
+    print("POST Response:", response.text)
 
     redis_client.set(redis_key, "done", ex=3600)
 
