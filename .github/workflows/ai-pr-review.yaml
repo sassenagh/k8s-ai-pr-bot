@@ -1,0 +1,39 @@
+name: AI Kubernetes PR Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - "k8s/**"
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build -t ai-pr-bot .
+
+      - name: Get PR diff
+        run: |
+          git fetch origin main
+          git diff origin/main > diff.txt
+
+      - name: Run bot with Redis
+        run: |
+          docker network create mynet
+
+          docker run -d --name redis --network mynet redis:7
+
+          docker run --rm \
+            --network mynet \
+            -e OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }} \
+            -e GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }} \
+            -e GITHUB_REPOSITORY=${{ github.repository }} \
+            -e GITHUB_REF=${{ github.ref }} \
+            -e REDIS_HOST=redis \
+            -e REDIS_PORT=6379 \
+            -v ${{ github.workspace }}:/app \
+            ai-pr-bot
