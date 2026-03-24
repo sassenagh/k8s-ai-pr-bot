@@ -18,8 +18,8 @@ jobs:
 
       - name: Get PR diff
         run: |
-          git fetch origin main
-          git diff origin/main > diff.txt
+          git fetch origin master
+          git diff origin/master > diff.txt
 
       - name: Run bot with Redis
         run: |
