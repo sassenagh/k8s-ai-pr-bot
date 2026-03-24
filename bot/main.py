@@ -20,6 +20,24 @@ redis_client = redis.Redis(
 
 client = OpenAI(api_key=OPENAI_API_KEY)
 
+
+def fallback_review(diff: str) -> str:
+    issues = []
+
+    if "image:" in diff and ":latest" in diff:
+        issues.append("❌ Critical: Avoid using 'latest' tag in images")
+
+    if "resources:" not in diff:
+        issues.append("⚠️ Warning: No resource limits defined")
+
+    if "livenessProbe" not in diff and "readinessProbe" not in diff:
+        issues.append("⚠️ Warning: No health checks defined")
+
+    if not issues:
+        return "✅ No major issues detected."
+
+    return "\n".join(issues)
+
 try:
     with open("diff.txt", "r") as f:
         diff = f.read()
@@ -35,41 +53,50 @@ try:
         print("Already reviewed, skipping...")
         exit(0)
 
-    response = client.chat.completions.create(
-        model="gpt-3.5-turbo",
-        messages=[
-            {
-                "role": "system",
-                "content": "You are a Kubernetes expert reviewer."
-            },
-            {
-                "role": "user",
-                "content": f"""
-                  Review this Kubernetes PR diff.
+    try:
+        print("Trying OpenAI review...")
 
-                  Identify:
-                  - Critical issues
-                  - Warnings
-                  - Improvements
+        response = client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {
+                    "role": "system",
+                    "content": "You are a Kubernetes expert reviewer."
+                },
+                {
+                    "role": "user",
+                    "content": f"""
+                    Review this Kubernetes PR diff.
 
-                  Suggest fixes in YAML.
+                    Identify:
+                    - Critical issues
+                    - Warnings
+                    - Improvements
 
-                  Be concise and structured.
+                    Suggest fixes in YAML.
 
-                  Diff:
-                  {diff}
-                  """
-            }
-        ],
-    )
+                    Be concise and structured.
 
-    review = response.choices[0].message.content
+                    Diff:
+                    {diff}
+                    """
+                }
+            ],
+        )
+
+        review = response.choices[0].message.content
+
+    except Exception as e:
+        print(f"OpenAI failed: {e}")
+        print("Using fallback review...")
+
+        review = fallback_review(diff)
 
     comment = f"""
-      ## 🤖 AI Kubernetes Review
+                ## Kubernetes Review
 
-      {review}
-      """
+                {review}
+                """
 
     url = f"https://api.github.com/repos/{REPO}/issues/{PR_NUMBER}/comments"
 
