@@ -23,20 +23,73 @@ client = OpenAI(api_key=OPENAI_API_KEY)
 
 def fallback_review(diff: str) -> str:
     issues = []
+    lines = diff.splitlines()
 
-    if "image:" in diff and ":latest" in diff:
-        issues.append("❌ Critical: Avoid using 'latest' tag in images")
+    image_line = None
+    for line in lines:
+        if "image:" in line:
+            image_line = line.strip()
+            break
+
+    if image_line and ":latest" in image_line:
+        fixed_image = image_line.replace(":latest", ":<version>")
+        issues.append("""❌ Critical: Avoid using 'latest' tag
+                       Fix: 
+                      {fixed_image}
+                      """)
 
     if "resources:" not in diff:
-        issues.append("⚠️ Warning: No resource limits defined")
+        issues.append("""⚠️ Warning: No resource limits defined
+        Suggested block:
+            resources:
+            limits:
+                cpu: "500m"
+                memory: "256Mi" """)
+
+    port = "80"
+    for line in lines:
+        if "containerPort" in line:
+            port = line.split(":")[-1].strip()
 
     if "livenessProbe" not in diff and "readinessProbe" not in diff:
-        issues.append("⚠️ Warning: No health checks defined")
+        issues.append(f"""
+                **Warning**: No health checks defined
+                Suggested block:
+                livenessProbe:
+                httpGet:
+                    path: /
+                    port: {port}
+                """)
+    if "privileged: true" in diff:
+            issues.append("""
+                    **Critical**: Privileged container detected
 
+                    Recommendation:
+                    Remove privileged: true unless strictly necessary
+                    """)
+            
+    if "namespace:" not in diff:
+        issues.append("""
+                **Suggestion**: No namespace specified
+
+                Consider defining a namespace for better isolation
+                """)
+    for line in lines:
+        if "apiVersion" in line and "beta" in line:
+            issues.append(f"""
+                    **Warning**: Deprecated API version detected
+
+                    Found:
+                    {line.strip()}
+
+                    Fix:
+                    Use a stable version like apiVersion: apps/v1
+                    """)
     if not issues:
         return "✅ No major issues detected."
 
-    return "\n".join(issues)
+    summary = f"## 📊 Summary\nFound {len(issues)} potential issues\n"
+    return summary + "\n".join(issues)
 
 try:
     with open("diff.txt", "r") as f:
