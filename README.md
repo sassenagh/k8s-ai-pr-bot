@@ -4,6 +4,7 @@
 ![Docker](https://img.shields.io/badge/docker-containerized-blue)
 ![Kubernetes](https://img.shields.io/badge/kubernetes-native-blue)
 ![Redis](https://img.shields.io/badge/redis-storage-orange)
+![OpenAI](https://img.shields.io/badge/OpenAI-integrated-lightgrey)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 A GitHub Actions bot that automatically reviews Kubernetes PRs, suggesting improvements and detecting potential issues.  
@@ -45,7 +46,7 @@ GitHub → CI/CD → Docker Image → GitHub Actions → PR Comment
 
 # Features
 
-- Automatic review of Kubernetes PR diffs  
+- Automatic review of Kubernetes PR diffs using **OpenAI GPT-3.5** (optional)
 - Detection of critical issues (privileged containers, `:latest` images)  
 - Suggestions for improvements (resource limits, health checks, namespace, deprecated APIs)  
 - Fallback review if OpenAI is not configured or quota is exhausted  
@@ -63,6 +64,7 @@ GitHub → CI/CD → Docker Image → GitHub Actions → PR Comment
 - Python 3.11
 - Requests
 - Redis-py
+- **OpenAI API** (optional, fallback if unavailable)
 
 ## Infrastructure
 
