@@ -2,6 +2,7 @@ import os
 import hashlib
 import requests
 import redis
+from datetime import timezone, datetime
 from openai import OpenAI
 
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
@@ -18,8 +19,9 @@ redis_client = redis.Redis(
     decode_responses=True
 )
 
-client = OpenAI(api_key=OPENAI_API_KEY)
-
+client = None
+if OPENAI_API_KEY:
+    client = OpenAI(api_key=OPENAI_API_KEY)
 
 def fallback_review(diff: str) -> str:
     issues = []
@@ -106,19 +108,20 @@ try:
         print("Already reviewed, skipping...")
         exit(0)
 
-    try:
-        print("Trying OpenAI review...")
-
-        response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {
-                    "role": "system",
-                    "content": "You are a Kubernetes expert reviewer."
-                },
-                {
-                    "role": "user",
-                    "content": f"""
+    review = ""
+    if client:
+        try:
+            print("Trying OpenAI review...") 
+            response = client.chat.completions.create(
+                model="gpt-3.5-turbo",
+                messages=[
+                    {
+                        "role": "system",
+                        "content": "You are a Kubernetes expert reviewer."
+                    },
+                    {
+                        "role": "user",
+                        "content": f"""
                     Review this Kubernetes PR diff.
 
                     Identify:
@@ -133,20 +136,26 @@ try:
                     Diff:
                     {diff}
                     """
-                }
-            ],
-        )
+                    }
+                ],
+            )
+            review = response.choices[0].message.content
 
-        review = response.choices[0].message.content
-
-    except Exception as e:
-        print(f"OpenAI failed: {e}")
-        print("Using fallback review...")
-
+        except Exception as e:
+            print(f"OpenAI failed: {e}")
+            print("Using fallback review...")
+            review = fallback_review(diff)
+    else:
+        print("OpenAI not configured, using fallback review...")
         review = fallback_review(diff)
 
+    
+    timestamp = datetime.now(timezone.utc).isoformat()
+
     comment = f"""
-                ## Kubernetes Review
+                ## Kubernetes Review 🛠
+
+                _Time: {timestamp} UTC_
 
                 {review}
                 """
